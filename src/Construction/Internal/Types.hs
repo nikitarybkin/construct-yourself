@@ -7,6 +7,7 @@ module Construction.Internal.Types
 import Data.Text (Text) -- we want to import only Text from Data.Text.
 import Data.Map  (Map (..))
 import Data.Set  (Set (..))
+import Data.Map.Strict
 
 
 type Name = Text -- just alias, no more
@@ -23,17 +24,17 @@ data Type = TVar { tvar :: Name }                   -- Type variables: a, b, ...
   deriving (Eq, Ord, Show)
 
 newtype Context = Context { getCtx :: Map Name Type } -- Types of variables
-  deriving (Show)
+  deriving (Eq, Show)
 
 newtype Substitution = Substitution { getSubs :: Map Name Type } -- Substitute type variable by some type
-  deriving (Show)
+  deriving (Eq, Show)
 
 type Equation = (Type, Type) -- Equation on types
 
 instance Monoid Context where
-  mempty = undefined
-  Context a `mappend` Context b = undefined
+  mempty = Context empty
+  Context a `mappend` Context b = Context (union a b)
 
 instance Monoid Substitution where
-  mempty = undefined
-  Substitution a `mappend` Substitution b = undefined
+  mempty = Substitution empty
+  Substitution a `mappend` Substitution b = Substitution (union a b)

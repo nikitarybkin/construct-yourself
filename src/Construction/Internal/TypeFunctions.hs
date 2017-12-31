@@ -9,6 +9,7 @@ import           Data.Map                        (member, fromList)
 import           Data.Set                        (Set (..), elemAt, delete, singleton, toList)
 import           Construction.Internal.Types
 import           Construction.Internal.Functions hiding (Context, substitute)
+import qualified Data.Map.Strict                 as MS
 
 -- Split a set of elements to the first element and rest set
 split :: Ord a => Set a -> (a, Set a)
@@ -22,25 +23,29 @@ ctx ! x | member x (getCtx ctx) = Just $ getCtx ctx M.! x
 
 -- Something we can perform substitution with
 class Substitutable a where
-  substitute :: Substitution -> a -> a
+  substitute1 :: Substitution -> a -> a
 
 -- Substitution in context
 --   [a:=t]empty       => empty
 --   [a:=t]{x:t1 ... } => {x:([a:=t]t1) ... }
 instance Substitutable Context where
-  substitute = undefined
+  substitute1 s@(Substitution sub) c@(Context getCtx) = Context (fmap (substitute1 s) getCtx)
 
 -- Substitution in type:
 --   [a:=t] a     => t
 --   [a:=t] b     => b
 --   [a:=t](r->p) => ([a:=t]r)->([a:=t]p)
 instance Substitutable Type where
-  substitute = undefined  
+  substitute1 s@(Substitution sub) (TVar name) = if (member name sub)
+                                                then (sub M.! name)
+                                                else (TVar name)
+  substitute1 s@(Substitution sub) (TArr from to) = TArr (substitute1 s from) (substitute1 s to)
 
 -- Compose two substitutions
 -- S@[a1 := t1, ...] . [b1 := s1 ...] = [b1 := S(s1) ... a1 := t1 ...]
 compose :: Substitution -> Substitution -> Substitution
-compose bc ab = undefined
+compose bc@(Substitution sub1) ab@(Substitution sub2) = Substitution (MS.union (fmap (substitute1 ab) sub1) sub2)
+(**) bc ab = compose bc ab
 
 -- Create new context from free variables of some term
 contextFromTerm :: Term -> Context
@@ -68,4 +73,4 @@ pp term = do let ctx = contextFromTerm term
              let tpe = TVar "r"
              eqs <- e ctx term tpe
              subs <- u eqs
-             pure (substitute subs ctx, substitute subs tpe)
+             pure (substitute1 subs ctx, substitute1 subs tpe)
